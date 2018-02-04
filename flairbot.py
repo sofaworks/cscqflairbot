@@ -3,6 +3,7 @@
 # This script creates a bot that responds to private messages for flair requests
 
 import os
+import logging
 import itertools
 
 from collections import namedtuple
@@ -49,11 +50,16 @@ class FlairBot:
     def check_pms(self):
         '''Check bot's unread PMs - we only care about PMs with the title "Flair Me"'''
         flair_requests = dict()
+        flair_text_changes = dict()
         ignored_messages = []
         for msg in self.reddit.inbox.unread(limit=None):
             author = msg.author.name
             if (msg.subject.strip().lower() == 'flair me') and (author not in flair_requests):
+                logging.info("Calculate flair request for: {}".format(author))
                 flair_requests[author] = msg
+            elif (msg.subject.strip().lower() == 'change flair text') and (author not in flair_text_changes):
+                logging.info("Change flair text request for: {}".format(author))
+                flair_text_changes[author] = msg
             else:
                 ignored_messages.append(msg)
         self.reddit.inbox.mark_read(ignored_messages)
@@ -61,12 +67,42 @@ class FlairBot:
         # now process flair_requests
         self.process_flair_requests(flair_requests)
 
+        # process flair text requests
+        self.process_flair_text_requests(flair_text_changes)
+
+    def change_flair_text(self, subreddit, redditor, new_flair_text):
+        current_flair = next(subreddit.flair(redditor=redditor))
+        flair_class = current_flair['flair_css_class']
+        try:
+            logging.info("Changing flair text for {} to '{}'".format(redditor, new_flair_text))
+            subreddit.flair.set(redditor, new_flair_text, flair_class)
+        except Exception as e:
+            logging.exception("Problem occurred setting flair text for {}".format(redditor))
+            return False
+        return True
+
+
+    def process_flair_text_requests(self, flair_text_requests):
+        sub = self.reddit.subreddit(self.subreddit)
+        for author, msg in flair_text_requests.items():
+            # extract the first line
+            flair_text = msg.body.splitlines()[0].strip()
+            success = self.change_flair_text(sub, author, flair_text)
+            if success:
+                reply = "Flair text changed to: **{}**".format(flair_text)
+            else:
+                reply = "There was a problem changing your flair text. Try again. If this keeps occurring, please contact the {} mods".format(self.subreddit)
+            msg.reply(reply)
+            msg.mark_read()
+
+
     def calculate_subreddit_karma(self, redditor):
         total_karma = 0
         for thing in itertools.chain(redditor.comments.top('all'), redditor.submissions.top('all')):
             if thing.subreddit.display_name == self.subreddit:
                 total_karma += thing.score
         return total_karma
+
 
     def process_flair_requests(self, flair_requests):
         '''Given a map of users and their messages, check for their
@@ -108,6 +144,7 @@ class FlairBot:
 
             if set_new_flair:
                 # change flair class for user
+                logging.info("Setting flair class for {} to '{}'".format(author, flair_type.flair_class))
                 sub.flair.set(author, css_class=flair_type.flair_class, text=flair_text)
                 msg.reply('Calculated Karma: **{}**. New flair set for karma level {}+'.format(karma, flair_type.karma))
             msg.mark_read()
@@ -115,5 +152,6 @@ class FlairBot:
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     fb = FlairBot(get_environment_configuration())
     fb.check_pms()
