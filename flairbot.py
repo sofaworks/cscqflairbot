@@ -149,6 +149,7 @@ class FlairBot:
                 'new_karma': new_karma
             }
 
+            set_new_flair = False
             if not flair_type:
                 # send a PM and say nothing will change
                 msg.reply(self.generate_flair_message(**fmt_dict, msg='Your calculated karma was too low for flair'))
@@ -157,7 +158,6 @@ class FlairBot:
                 current_flair = next(sub.flair(redditor=author))
                 flair_class = current_flair['flair_css_class']
                 flair_text = current_flair['flair_text']
-                set_new_flair = False
 
                 if flair_class:
                     # if flair_class is None but flair_type isn't, just set flair_type
