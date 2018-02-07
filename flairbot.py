@@ -179,7 +179,7 @@ class FlairBot:
                 # change flair class for user
                 logging.info("action=ChangeFlairClass user={} class={}".format(author, flair_type.flair_class))
                 sub.flair.set(author, css_class=flair_type.flair_class, text=flair_text)
-                msg.reply(self.generate_flair_message(**fmt_dict, msg='Setting new flair for karma level {}+'))
+                msg.reply(self.generate_flair_message(**fmt_dict, msg='Setting new flair for karma level {}+'.format(flair_type.karma)))
             msg.mark_read()
 
 
