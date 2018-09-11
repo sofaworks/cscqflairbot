@@ -52,6 +52,12 @@ class FlairBot:
         flair_text_changes = dict()
         ignored_messages = []
         for msg in self.reddit.inbox.unread(limit=None):
+            if not msg.author:
+                # Certain types of PMs (like mod invites) do not have an author object,
+                # so just ignore those
+                ignored_messages.append(msg)
+                continue
+
             author = msg.author.name
             if (msg.subject.strip().lower() == 'flair me') and (author not in flair_requests):
                 logging.info("request=CalculateFlair user={}".format(author))
